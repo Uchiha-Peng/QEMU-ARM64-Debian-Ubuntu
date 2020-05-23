@@ -89,7 +89,7 @@ qemu-system-aarch64 ^
 
 
 
-### 4、开始再次登录
+### 4、运行并添加UEFI启动项
 
 ```
 #on Windows cmd
