@@ -91,11 +91,24 @@ qemu-system-aarch64 ^
 
 ### 4、运行并添加UEFI启动项
 
+注意，真正的难题出现了，如果使用-bios QEMU_EFI.fd启动，登陆时会按默认的UEFI启动项顺序启动，会出现` Start PXE over IPv4`等信息，无法启动进入系统。关于这个问题，Debian官网有描述，参见[Debian官网Wiki](https://wiki.debian.org/UEFI#Booting_from_removable_media"debian uefi")，出现的原因，是因为原有的UEFI引导项没有从grubaa64.efi启动的，那我们需要新建一个引导项从grubaa64.efi启动。但是，由于-bios QEMU_EFI.fd是只读的，我们即便本次新建了引导项，等关机后再次启动时，新增的UEFI引导项会丢失，官方提供了pflash来解决这问题，它是可读写的
+
+首先，我们将QEMU_EFI.fd文件打包到img文件中，给64MB大小即可，在Linux下执行以下命令
+
+```
+dd if=/dev/zero of=flash0.img bs=1M count=64
+dd if=QEMU_EFI.fd of=flash0.img conv=notrunc
+dd if=/dev/zero of=flash1.img bs=1M count=64
+```
+
+在上一步中，会生成两个文件`flash0.img`和`flash1.img`，我们用pflash来启动
+
 ```
 #on Windows cmd
 qemu-system-aarch64 ^
     -M virt -m 3G -cpu cortex-a72 -smp 2 ^
-    -bios QEMU_EFI.fd ^
+    -drive file=flash0.img,format=raw,if=pflash ^
+    -drive file=flash1.img,format=raw,if=pflash ^
     -drive id=hd0,media=disk,if=none,file=debian.qcow2 ^
     -device virtio-scsi-pci -device scsi-hd,drive=hd0 ^
     -nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22,hostfwd=tcp::6900-:5900 ^
@@ -104,7 +117,8 @@ qemu-system-aarch64 ^
  #on Linux terminal
  qemu-system-aarch64 \
     -M virt -m 3G -cpu cortex-a72 -smp 2 \
-    -bios QEMU_EFI.fd \
+    -drive file=flash0.img,format=raw,if=pflash \
+    -drive file=flash1.img,format=raw,if=pflash \
     -drive id=hd0,media=disk,if=none,file=debian.qcow2 \
     -device virtio-scsi-pci -device scsi-hd,drive=hd0 \
     -nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22,hostfwd=tcp::6900-:5900 \
@@ -116,7 +130,7 @@ qemu-system-aarch64 ^
 如果安装了桌面环境，无论Windows还是Linux，请替换为-device virtio-gpu-pci 或 -device ramfb
 ```
 
-注意，真正的难题出现了，登陆时会出现` Start PXE over IPv4`等类似信息,无法启动进入系统。关于这个问题，Debian官网有描述,参见[Debian官网Wiki](https://wiki.debian.org/UEFI#Booting_from_removable_media"debian uefi")，出现的原因,就是找不到uefi的引导文件，那我们需要告诉它在哪里。输入以下内容(一个标点符号都不要少)，然后Enter，即可正常进入系统
+注意，因为我们还没有添加引导项，所以本次登陆时仍会出现` Start PXE over IPv4`等类息，此时我们在控制台输入以下内容(一个标点符号都不要少)，然后Enter，即可正常进入系统
 
 ```
 #for debian
@@ -126,14 +140,14 @@ qemu-system-aarch64 ^
 \EFI\ubuntu\grubaa64.efi
 ```
 
-如果关机了，下次还是无法直接进入系统,话是需要重复上一步操作，这显然是不合理的，好在官方也提供了解决方案，那就是新增一个uefi启动选项，并设置为启动首选项
+成功进入系统后，我们新增一个uefi启动选项，并设置为启动首选项，通过以下命令即可解决问题
 
 ```
 #for debian
- efibootmgr -c -L debian -l '\EFI\debian\grubaa64.efi'
+ efibootmgr -c -d /dev/sda -p 1 -L debian -l \EFI\debian\grubx64.efi
 
 #ubuntu
- efibootmgr -c -L debian -l '\EFI\ubuntu\grubaa64.efi'
+ efibootmgr -c -d /dev/sda -p 1 -L debian -l \EFI\ubuntu\grubx64.efi
 
 #执行成功的情况下，可以看到如下响应
 #大致意思是，列出来现有的启动项，并且新增了序号为Boot0007*，备注为debian的启动项，而且在启动顺序BootOrder中，我们新增的007已经排列到第一位了，关机后下次再进入系统，就无需再手动输入uefi引导文件的位置了
