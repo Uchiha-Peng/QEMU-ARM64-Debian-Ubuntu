@@ -91,7 +91,7 @@ qemu-system-aarch64 ^
 
 ### 4、运行并添加UEFI启动项
 
-注意，真正的难题出现了，安装完成后，如果使用-bios QEMU_EFI.fd启动，登陆时会按默认的UEFI启动项顺序启动，会出现` Start PXE over IPv4`等信息，无法启动进入系统。关于这个问题，Debian官网有描述，参见[Debian官网Wiki](https://wiki.debian.org/UEFI#Booting_from_removable_media"debian uefi")，出现的原因，是因为原有的UEFI引导项没有从grubaa64.efi启动的，那我们需要新建一个引导项从grubaa64.efi启动。但是，由于-bios QEMU_EFI.fd是只读的，我们即便本次新建了引导项，等关机后再次启动时，新增的UEFI引导项会丢失，官方提供了pflash来解决这问题，它是可读写的
+注意，真正的难题出现了，安装完成后，如果使用-bios QEMU_EFI.fd启动，登陆时会按默认的UEFI启动项顺序启动，会出现` Start PXE over IPv4`等信息，无法启动进入系统。关于这个问题，Debian官网有描述，参见[Debian官网Wiki](https://wiki.debian.org/UEFI#Booting_from_removable_media"debian uefi")，出现的原因，是因为原有的UEFI引导项没有从grubaa64.efi启动的，那我们需要新建一个引导项从grubaa64.efi启动。但是，由于-bios QEMU_EFI.fd是只读的，我们即便本次新建了引导项，等关机后再次启动时，新增的UEFI引导项会丢失，官方提供了pflash来解决这问题，它是可读写的。我这里提供了几个Demo文件，可以让你直接启动到系统，但是仅适用于Debian，如果是ubuntu，你还需要自己动手。
 
 首先，我们将QEMU_EFI.fd文件打包到img文件中，给64MB大小即可，在Linux下执行以下命令
 
